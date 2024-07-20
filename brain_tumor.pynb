@@ -1,0 +1,126 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+nopath='/content/drive/MyDrive/brain_tumor_dataset/brain_tumor_dataset/no/1 no.jpeg'
+
+import pandas as pd
+import numpy as np
+import cv2
+from PIL import Image
+import matplotlib.pyplot as plt
+from numpy import asarray
+
+noi=Image.open(nopath)
+noia=asarray(noi)
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+
+# Path to your dataset
+dataset_path = '/content/drive/My Drive/brain_tumor_dataset'
+yes_path = os.path.join(dataset_path, 'yes')
+no_path = os.path.join(dataset_path, 'no')
+
+# Data Augmentation and Preprocessing
+datagen = ImageDataGenerator(
+    rescale=1./255,
+    validation_split=0.2
+)
+
+train_generator = datagen.flow_from_directory(
+    dataset_path,
+    target_size=(img_height, img_width),
+    batch_size=batch_size,
+    class_mode='binary',
+    subset='training'
+)
+
+validation_generator = datagen.flow_from_directory(
+    dataset_path,
+    target_size=(img_height, img_width),
+    batch_size=batch_size,
+    class_mode='binary',
+    subset='validation'
+)
+
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(img_height, img_width, 3)),
+    MaxPooling2D((2, 2)),
+
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.5),
+    Dense(1, activation='sigmoid')
+])
+
+# Compile the model
+model.compile(optimizer=Adam(learning_rate=0.001),
+              loss='binary_crossentropy',
+              metrics=['accuracy'])
+
+
+# Train the model without early stopping
+history = model.fit(
+    train_generator,
+    steps_per_epoch=train_generator.samples // batch_size,
+    validation_steps=validation_generator.samples // batch_size,
+    epochs=10,  # Number of epochs to train for
+    validation_data=validation_generator
+)
+
+#save your model
+model.save('/content/drive/My Drive/brain_tumor_cnn_model.h5')
+
+from tensorflow.keras.models import load_model
+
+# Load the model
+model = load_model('/content/drive/My Drive/brain_tumor_cnn_model.h5')
+
+notest='/content/drive/MyDrive/brain_tumor_dataset/brain_tumor_dataset/no/15 no.jpg'
+
+from tensorflow.keras.preprocessing import image
+
+def load_and_preprocess_image(image_path, img_height=224, img_width=224):
+    img = image.load_img(image_path, target_size=(img_height, img_width))
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+    img_array = img_array / 255.0  # Rescale the image (same as during training)
+    return img_array
+
+
+img=load_and_preprocess_image(notest,224,224)
+
+def predict_image(model, image_path):
+    img_array = load_and_preprocess_image(image_path)
+    prediction = model.predict(img_array)
+    return prediction
+
+
+prediction=predict_image(model,notest)
+
+def display_prediction(image_path, prediction):
+    img = Image.open(image_path)
+    plt.imshow(img)
+    plt.axis('off')
+
+    # Use argmax to find the index of the highest probability
+    prediction_class = np.argmax(prediction, axis=-1)
+    class_label = 'Tumor' if prediction_class == 1 else 'No Tumor'
+
+    plt.title(f"Prediction: {class_label}")
+    plt.show()
+
+
+display_prediction(notest,prediction)
